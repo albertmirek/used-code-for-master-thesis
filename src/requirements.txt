@@ -1,0 +1,16 @@
+torch==2.2.1 -f https://download.pytorch.org/whl/cpu/torch-2.2.1%2Bcpu-cp310-cp310-linux_x86_64.whl#sha256=5d82422cf04797f1b2a8574b64a916070ec83eef58ad4900615ee0218d7b8b8e
+torch-model-archiver==0.10.0
+mlflow-skinny==2.11.1
+astunparse==1.6.3
+cloudpickle==3.0.0
+numpy==1.26.4
+optree==0.11.0
+pandas==2.2.1
+pyyaml==6.0.1
+tqdm==4.66.2
+google-cloud-storage
+google-auth
+pyarrow
+scikit-learn
+
+

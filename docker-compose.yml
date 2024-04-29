@@ -1,0 +1,98 @@
+version: '3'
+
+
+networks:
+   front:
+
+volumes:
+  percona-data:
+  redis-data:
+  elasticsearch-data-7:
+
+services:
+    adminer:
+      networks:
+        - front
+      image: adminer
+      depends_on:
+        - percona
+      ports:
+        - 8085:8080
+
+
+    mlflow:
+      build:
+        dockerfile: ./mlflow.Dockerfile
+      networks:
+        - front
+      environment:
+        - APP_PORT=9005
+        - DB_USER=root
+        - DB_PASSWORD=root
+        - DB_HOST=percona
+        - DB_PORT=3306
+        - DB_NAME=company-mlflow
+        - BUCKET_NAME=company-mlflow
+        - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+        - AWS_ACCESS_KEY_ID=minio_user
+        - AWS_SECRET_ACCESS_KEY=minio_password
+      depends_on:
+        - percona
+        - minio
+      ports:
+        - 9005:9005
+
+    percona:
+      image: percona:5.7
+      platform: linux/x86_64
+      networks:
+        - front
+      volumes:
+        - percona-data:/var/lib/mysql
+      ports:
+        - "3306:3306"
+      command: --sql-mode="TRADITIONAL,NO_ENGINE_SUBSTITUTION"
+      environment:
+        TZ: "Europe/Prague"
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_USER: company
+        MYSQL_PASSWORD: company
+        MYSQL_DATABASE: company-mlflow
+
+  # MinIO server
+    minio:
+      image: minio/minio
+      expose:
+        - "9000"
+      ports:
+        - "9000:9000"
+        - "9001:9001"
+      networks:
+        - front
+      environment:
+        MINIO_ROOT_USER: "minio_user"
+        MINIO_ROOT_PASSWORD: "minio_password"
+      healthcheck:
+        test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+        interval: 1s
+        timeout: 10s
+        retries: 5
+      command: server /data --console-address ":9001"
+
+  # Create a bucket named "company-mlflow" if it doesnt already exist
+    minio-create-bucket:
+      image: minio/mc
+      depends_on:
+        minio:
+          condition: service_healthy
+      networks:
+        - front
+      entrypoint: >
+        bash -c "
+        mc alias set minio http://minio:9000 minio_user minio_password &&
+        if ! mc ls minio | grep --quiet bucket; then
+          mc mb minio/company-mlflow
+        else
+          echo 'bucket already exists'
+        fi
+        "
